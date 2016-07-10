@@ -17,11 +17,12 @@ import org.jtransforms.fft.DoubleFFT_1D;
 import org.jtransforms.fft.FloatFFT_1D;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
+import static android.R.attr.max;
 import static java.util.Arrays.copyOf;
 
 public class MainActivity extends Activity {
@@ -35,6 +36,8 @@ public class MainActivity extends Activity {
 
   private final double SPD_OF_SOUND = 0.3432; // (mm/us)
   private final double MIC_DISTANCE = 142.4; // (mm)
+
+  private double[] mAngles;
 
   private final double ALPHA = 0.05;
 
@@ -64,6 +67,7 @@ public class MainActivity extends Activity {
     playPro = new ArrayList<>();
 
     mCanvasView = (CanvasView) findViewById(R.id.canvas);
+    mAngles = new double[MAX_VOICES];
   }
 
   @Override
@@ -103,17 +107,68 @@ public class MainActivity extends Activity {
     recordingThread.start();
   }
 
+  private final float XCC_CUTOFF = 1000000000f;
+  private final int MAX_VOICES = 1;
+  private final int MAX_RANGE = 5;
+  private class Pair implements Comparable<Pair> {
+    Integer mIndex;
+    Float mVal;
 
-  //convert short to byte
-  float xccMax = 0.0f;
-  private int getTime(short[] leftData, short[] rightData) {
+    public Pair(int index, float data) {
+      mIndex = index;
+      mVal = data;
+    }
+
+    public int compareTo(Pair other) {
+      return other.mVal.compareTo(this.mVal);
+    }
+  }
+  private ArrayList<Integer> karensFunc(float[] data) {
+    ArrayList<Pair> candidates = new ArrayList<>();
+
+    for (int i = 0; i < data.length; i++) {
+      if(data[i] < XCC_CUTOFF) continue;
+      if(i > 60 && i < data.length - 60) continue;
+      boolean flag = true;
+      for(int j = 1; j <= MAX_RANGE; j++) {
+        if (data[i] < data[(i + j) % data.length]) { flag = false; break; }
+        if (data[i] < data[(i + data.length - j) % data.length]) { flag = false; break; }
+      }
+      if(!flag) continue;
+      candidates.add(new Pair(i, data[i]));
+    }
+
+    Collections.sort(candidates);
+
+    ArrayList<Integer> res = new ArrayList<>();
+    int max = Math.min(MAX_VOICES, candidates.size());
+    for(int i = 0; i < max; i++) {
+      res.add(candidates.get(i).mIndex);
+    }
+
+    return res;
+  }
+
+
+
+  private ArrayList<Integer> getTimes(short[] leftData, short[] rightData) {
     FloatFFT_1D fftDo = new FloatFFT_1D(leftData.length);
     float[] leftFFT = new float[leftData.length * 2];
     float[] rightFFT = new float[rightData.length * 2];
     float[] outFFT = new float[rightData.length * 2];
+
+    float leftMean = 0.0f;
+    float rightMean = 0.0f;
     for(int i = 0; i < leftData.length; i++) {
-      leftFFT[i] = leftData[i];
-      rightFFT[i] = rightData[i];
+      leftMean += leftData[i];
+      rightMean += rightData[i];
+    }
+    leftMean /= leftData.length;
+    rightMean /= rightData.length;
+
+    for(int i = 0; i < leftData.length; i++) {
+      leftFFT[i] = leftData[i] - leftMean;
+      rightFFT[i] = rightData[i] - rightMean;
     }
 
     fftDo.realForwardFull(leftFFT);
@@ -127,24 +182,36 @@ public class MainActivity extends Activity {
     }
     fftDo.complexInverse(outFFT, true);
 
-    int ret = 0;
-    float max = 0.0f;
-
+    float[] data = new float[outFFT.length / 2];
     for(int i = 0; i < outFFT.length; i+=2) {
-      if(Math.abs(outFFT[i]) > max) {
-        max = Math.abs(outFFT[i]);
-        ret = i/2;
-      }
+      data[i/2] = outFFT[i];
     }
 
-    xccMax = max;
+    float mean = 0.0f;
+    for(int i= 0; i < data.length; i++) {
+      mean += data[i];
+    }
+    mean /= (float)(data.length);
 
-    return ret;
+    for(int i= 0; i < data.length; i++) {
+      data[i] -= mean;
+    }
+
+    runOnUiThread(new Runnable() {
+      @Override
+      public void run() {
+        float newMean = 0.0f;
+        for(int i= 0; i < data.length; i++) {
+          newMean += data[i];
+        }
+        newMean /= data.length;
+        outView.setText("Mean: " + Math.round(newMean));
+      }
+    });
+
+    return karensFunc(data);
   }
 
-
-
-  private double angleAvg = 0.0f;
   private void processAudio() {
     short sData[] = new short[BufferElements2Rec];
     playRaw.clear();
@@ -166,32 +233,40 @@ public class MainActivity extends Activity {
 
 
 
-      int outPre = getTime(leftData, rightData);
-      if(outPre > 512) outPre -= 1024;
-
-      double dt = outPre * 11.34; // 88.2kHz -> 11.34us
-      double angle = dt * SPD_OF_SOUND / MIC_DISTANCE;
-      if(angle > 1.0) angle = 1.0;
-      if(angle < -1.0) angle = -1.0;
-
-      angle = Math.asin(angle) * 180.0 / Math.PI;
-
-      if(xccMax > 1000000000f) {
-        angleAvg = angle * ALPHA  + (1.0 - ALPHA) * angleAvg;
+      ArrayList<Integer> outPre = getTimes(leftData, rightData);
+      ArrayList<Integer> outPost = new ArrayList<>();
+      for(Integer i : outPre) {
+        if(i >= 0) {
+          if(i > 512) i -= 1024;
+          outPost.add(i);
+        }
       }
 
-      final double finAngle = angleAvg;
+      Collections.sort(outPost);
+
+      final int maxVoices = outPost.size();
+
+      for(int i = 0; i < outPost.size(); i++) {
+
+        double dt = outPost.get(i) * 11.34; // 88.2kHz -> 11.34us
+        double angle = dt * SPD_OF_SOUND / MIC_DISTANCE;
+        if (angle > 1.0) angle = 1.0;
+        if (angle < -1.0) angle = -1.0;
+
+        angle = Math.asin(angle) * 180.0 / Math.PI;
+
+        mAngles[i] = angle * ALPHA + (1.0 - ALPHA) * mAngles[i];
+      }
 
       runOnUiThread(new Runnable() {
         @Override
         public void run() {
-
-          outView.setText("Angle: " + Math.round(finAngle));
-          mCanvasView.updateAngle(finAngle);
+          mCanvasView.updateAngles(mAngles, maxVoices);
         }
       });
 
       // Write Raw to ArrayList
+      /*
       for(int i = 0; i < leftData.length; i += 2) {
         playRaw.add(leftData[i]);
         int index = (i+outPre);
@@ -200,9 +275,7 @@ public class MainActivity extends Activity {
           playPro.add((short)(((int)leftData[i] + (int)rightData[i-outPre]) / 2));
         else playPro.add(leftData[i]);
       }
-
-
-
+      */
     }
   }
 

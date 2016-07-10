@@ -12,6 +12,7 @@ import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.View;
 
+import static android.R.attr.angle;
 import static android.content.ContentValues.TAG;
 
 public class CanvasView extends View {
@@ -19,11 +20,10 @@ public class CanvasView extends View {
   private static final String TAG = "CanvasView";
 
   private Bitmap mBitmap;
-  private Path mPath;
+  private Path[] mPath;
   Context context;
   private Paint mPaint;
   private static final float LINE_DIST = 250.0f;
-  private double mTargetAngle;
   private Canvas mCanvas;
   private float mX;
   private float mY;
@@ -33,7 +33,9 @@ public class CanvasView extends View {
     context = c;
 
     // we set a new Path
-    mPath = new Path();
+    mPath = new Path[2];
+    mPath[0] = new Path();
+    mPath[1] = new Path();
 
     mX = 500.0f;
     mY = 250.0f;
@@ -44,9 +46,7 @@ public class CanvasView extends View {
     mPaint.setColor(Color.RED);
     mPaint.setStyle(Paint.Style.STROKE);
     mPaint.setStrokeJoin(Paint.Join.ROUND);
-    mPaint.setStrokeWidth(10);
-
-    mTargetAngle = 0.0;
+    mPaint.setStrokeWidth(20);
   }
 
   // override onSizeChanged
@@ -68,15 +68,21 @@ public class CanvasView extends View {
     super.onDraw(canvas);
     Log.d(TAG, "Drawing");
     // draw the mPath with the mPaint on the canvas when onDraw
-    canvas.drawPath(mPath, mPaint);
+    mPaint.setColor(Color.RED);
+    canvas.drawPath(mPath[0], mPaint);
+    mPaint.setColor(Color.GREEN);
+    canvas.drawPath(mPath[1], mPaint);
+    mPath[0].reset();
+    mPath[1].reset();
   }
 
-  public void updateAngle(double angle) {
-    mPath.reset();
-    mPath.moveTo(mX, mY);
-
-    mTargetAngle = Math.PI * angle / 180.0f;
-    mPath.rLineTo((float)(LINE_DIST*Math.sin(mTargetAngle)), -(float)(LINE_DIST*Math.cos(mTargetAngle)));
+  public void updateAngles(double[] angles, int maxVoices) {
+    for(int i = 0; i < maxVoices; i++) {
+      double d = Math.PI * angles[i] / 180.0f;
+      mPath[i].reset();
+      mPath[i].moveTo(mX, mY);
+      mPath[i].rLineTo((float) (LINE_DIST * Math.sin(d)), -(float) (LINE_DIST * Math.cos(d)));
+    }
     invalidate();
   }
 }
