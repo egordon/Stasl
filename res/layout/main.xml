@@ -4,11 +4,50 @@
     android:id="@+id/main_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     >
     <TextView
-        android:text="Hello World!"
+        android:id="@+id/xcc"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         />
+    <TextView
+            android:id="@+id/leftMag"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+    />
+    <TextView
+            android:id="@+id/rightMag"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+    />
+    <TextView
+            android:id="@+id/xccMag"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+    />
+    <Button android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/Record"
+            android:text="Record"
+            android:clickable="true"
+            android:onClick="onRecClick"
+    />
+    <Button android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/Play"
+            android:text="Play Raw"
+            android:clickable="true"
+            android:enabled="true"
+            android:onClick="onPlay"
+    />
+    <Button android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/PlayPro"
+            android:text="Play Processed"
+            android:clickable="true"
+            android:enabled="true"
+            android:onClick="onPlay"
+    />
 </LinearLayout>
 
