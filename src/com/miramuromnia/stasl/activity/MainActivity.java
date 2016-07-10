@@ -2,6 +2,8 @@ package com.miramuromnia.stasl.activity;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.media.*;
 import android.os.Bundle;
 import android.util.Log;
@@ -10,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import com.miramuromnia.stasl.R;
+import com.miramuromnia.stasl.util.CanvasView;
 import org.jtransforms.fft.DoubleFFT_1D;
 import org.jtransforms.fft.FloatFFT_1D;
 
@@ -42,12 +45,11 @@ public class MainActivity extends Activity {
   private Thread recordingThread = null;
   private boolean isRecording = false;
   private TextView outView = null;
-  private TextView leftMagView = null;
-  private TextView rightMagView = null;
-  private TextView xccMagView = null;
 
   private ArrayList<Short> playRaw = null;
   private ArrayList<Short> playPro = null;
+
+  private CanvasView mCanvasView = null;
 
   private float mOut = 0.0f;
 
@@ -57,62 +59,23 @@ public class MainActivity extends Activity {
     setContentView(R.layout.main);
 
     outView = (TextView) findViewById(R.id.xcc);
-    rightMagView = (TextView) findViewById(R.id.rightMag);
-    leftMagView = (TextView) findViewById(R.id.leftMag);
-    xccMagView = (TextView) findViewById(R.id.xccMag);
 
     playRaw = new ArrayList<>();
     playPro = new ArrayList<>();
-  }
 
-  public void onPlay(View view) {
-    Thread playThread = new Thread(new Runnable() {
-      public void run() {
-        playAudio(view);
-      }
-    }, "AudioPlay Thread");
-    playThread.start();
-  }
-
-  private void playAudio(View view) {
-    Log.d(TAG, "Playback...");
-    ArrayList<Short> data = (view.getId() == R.id.PlayPro) ? playPro : playRaw;
-    short[] shorts = new short[data.size()];
-      for(int i = 0; i < data.size(); i++) {
-        shorts[i] = data.get(i);
-      }
-
-    Log.d(TAG, "Number of Samples: " + shorts.length);
-
-      AudioTrack at = new AudioTrack(AudioManager.STREAM_MUSIC, 44100,
-          AudioFormat.CHANNEL_CONFIGURATION_MONO,
-          AudioFormat.ENCODING_PCM_16BIT, shorts.length * 2,
-          AudioTrack.MODE_STATIC);
-      at.write(shorts, 0, shorts.length);
-      at.play();
-  }
-
-  public void onRecClick(View view) {
-    Button btn = (Button) view;
-    Button play = (Button) findViewById(R.id.Play);
-    Button playPro = (Button) findViewById(R.id.PlayPro);
-
-    if(isRecording) {
-      btn.setText("Record");
-      play.setEnabled(true);
-      playPro.setEnabled(true);
-      stopRecording();
-    } else {
-      btn.setText("Stop");
-      play.setEnabled(false);
-      playPro.setEnabled(false);
-      startRecording();
-    }
+    mCanvasView = (CanvasView) findViewById(R.id.canvas);
   }
 
   @Override
   public void onResume() {
     super.onResume();
+    startRecording();
+  }
+
+  @Override
+  public void onConfigurationChanged(Configuration newConfig) {
+    // ignore orientation change
+    super.onConfigurationChanged(newConfig);
   }
 
   @Override
@@ -224,7 +187,7 @@ public class MainActivity extends Activity {
         public void run() {
 
           outView.setText("Angle: " + Math.round(finAngle));
-          xccMagView.setText("XCC: " + xccMax);
+          mCanvasView.updateAngle(finAngle);
         }
       });
 
