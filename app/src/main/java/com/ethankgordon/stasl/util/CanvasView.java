@@ -1,7 +1,6 @@
-package com.miramuromnia.stasl.util;
+package com.ethankgordon.stasl.util;
 
 import android.util.Log;
-import android.view.MotionEvent;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -11,9 +10,6 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.View;
-
-import static android.R.attr.angle;
-import static android.content.ContentValues.TAG;
 
 public class CanvasView extends View {
 

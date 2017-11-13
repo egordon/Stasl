@@ -1,29 +1,20 @@
-package com.miramuromnia.stasl.activity;
+package com.ethankgordon.stasl.activity;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.Canvas;
 import android.media.*;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.KeyEvent;
-import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
-import com.miramuromnia.stasl.R;
-import com.miramuromnia.stasl.util.CanvasView;
-import org.jtransforms.fft.DoubleFFT_1D;
+import com.ethankgordon.stasl.R;
+import com.ethankgordon.stasl.util.CanvasView;
 import org.jtransforms.fft.FloatFFT_1D;
-
-import java.io.*;
-import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.*;
 
-import static android.R.attr.max;
-import static java.util.Arrays.copyOf;
+import android.support.v4.app.ActivityCompat;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
@@ -37,12 +28,11 @@ public class MainActivity extends Activity {
   private final double SPD_OF_SOUND = 0.3432; // (mm/us)
   private final double MIC_DISTANCE = 142.4; // (mm)
 
+  private final int PERM_REQ_REC_AUDIO = 123;
+
   private double[] mAngles;
 
   private final double ALPHA = 0.05;
-
-  private final String AUDIO_RAW = "audio_raw.pcm";
-  private final String AUDIO_PRO = "audio_processed.pcm";
 
   private AudioRecord recorder = null;
   private Thread recordingThread = null;
@@ -55,6 +45,34 @@ public class MainActivity extends Activity {
   private CanvasView mCanvasView = null;
 
   private float mOut = 0.0f;
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode,
+                                         String permissions[], int[] grantResults) {
+    switch (requestCode) {
+      case PERM_REQ_REC_AUDIO: {
+        // If request is cancelled, the result arrays are empty.
+        if (grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+          // permission was granted, yay! Do the
+          // contacts-related task you need to do.
+
+          startRecording();
+
+        } else {
+
+          // permission denied, boo! Disable the
+          // functionality that depends on this permission.
+          Context context = getApplicationContext();
+          CharSequence text = "Audio permission required! Please restart app.";
+          int duration = Toast.LENGTH_SHORT;
+          Toast toast = Toast.makeText(context, text, duration);
+          toast.show();
+        }
+      }
+    }
+  }
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -73,7 +91,14 @@ public class MainActivity extends Activity {
   @Override
   public void onResume() {
     super.onResume();
-    startRecording();
+    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+
+      ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO},
+              PERM_REQ_REC_AUDIO);
+    } else {
+      startRecording();
+    }
   }
 
   @Override
@@ -114,7 +139,7 @@ public class MainActivity extends Activity {
     Integer mIndex;
     Float mVal;
 
-    public Pair(int index, float data) {
+    private Pair(int index, float data) {
       mIndex = index;
       mVal = data;
     }
@@ -188,8 +213,8 @@ public class MainActivity extends Activity {
     }
 
     float mean = 0.0f;
-    for(int i= 0; i < data.length; i++) {
-      mean += data[i];
+    for(float f : data) {
+      mean += f;
     }
     mean /= (float)(data.length);
 
@@ -197,15 +222,18 @@ public class MainActivity extends Activity {
       data[i] -= mean;
     }
 
+    final float[] finalData = data;
+
     runOnUiThread(new Runnable() {
       @Override
       public void run() {
         float newMean = 0.0f;
-        for(int i= 0; i < data.length; i++) {
-          newMean += data[i];
+        for(float f : finalData) {
+          newMean += f;
         }
-        newMean /= data.length;
-        outView.setText("Mean: " + Math.round(newMean));
+        newMean /= finalData.length;
+        String myString = "Mean: " + Math.round(newMean);
+        outView.setText(myString);
       }
     });
 
@@ -264,18 +292,6 @@ public class MainActivity extends Activity {
           mCanvasView.updateAngles(mAngles, maxVoices);
         }
       });
-
-      // Write Raw to ArrayList
-      /*
-      for(int i = 0; i < leftData.length; i += 2) {
-        playRaw.add(leftData[i]);
-        int index = (i+outPre);
-        index = (index < 0) ? index + rightData.length : index%rightData.length;
-        if(i-outPre > 0 && i-outPre < rightData.length)
-          playPro.add((short)(((int)leftData[i] + (int)rightData[i-outPre]) / 2));
-        else playPro.add(leftData[i]);
-      }
-      */
     }
   }
 
