@@ -43,7 +43,7 @@ public class CanvasView extends View {
     // and we set a new Paint with the desired attributes
     mPaint = new Paint();
     mPaint.setAntiAlias(true);
-    mPaint.setColor(Color.RED);
+    mPaint.setColor(Color.BLUE);
     mPaint.setStyle(Paint.Style.STROKE);
     mPaint.setStrokeJoin(Paint.Join.ROUND);
     mPaint.setStrokeWidth(20);
@@ -67,13 +67,22 @@ public class CanvasView extends View {
   protected void onDraw(Canvas canvas) {
     super.onDraw(canvas);
     Log.d(TAG, "Drawing");
+    Paint textPaint = new Paint();
+    textPaint.setTextSize(100.0f);
+    textPaint.setTextAlign(Paint.Align.CENTER);
+    textPaint.setColor(Color.WHITE);
+    canvas.drawText("Hello world", mX, mY - 2.0f * LINE_DIST, textPaint);
     // draw the mPath with the mPaint on the canvas when onDraw
-    mPaint.setColor(Color.RED);
+    mPaint.setColor(Color.BLUE);
     canvas.drawPath(mPath[0], mPaint);
-    mPaint.setColor(Color.GREEN);
-    canvas.drawPath(mPath[1], mPaint);
     mPath[0].reset();
-    mPath[1].reset();
+    mPaint.setColor(Color.GRAY);
+    canvas.drawCircle(mX, mY, 1.2f * LINE_DIST, mPaint);
+    Paint fillBackgroundPaint = new Paint();
+    fillBackgroundPaint.setAntiAlias(true);
+    fillBackgroundPaint.setColor(Color.BLACK);
+    fillBackgroundPaint.setStyle(Paint.Style.FILL);
+    canvas.drawRect(mX-1.2f*LINE_DIST, mY,mX+1.2f*LINE_DIST,mY+1.2f*LINE_DIST, fillBackgroundPaint);
   }
 
   public void updateAngles(double[] angles, int maxVoices) {
